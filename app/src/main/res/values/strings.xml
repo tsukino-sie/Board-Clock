@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">floatingclock</string>
+    <string name="v1_0_0">시계 v1.0.0</string>
+    <string name="email_tsukino_sie_yahoo_com">Email / tsukino_sie@yahoo.com</string>
+    <string name="copyright_2026_sie">Copyright, 2026 @Sie</string>
+    <string name="모서리_곡률">모서리 곡률</string>
+    <string name="디자인_및_크기">디자인 및 크기</string>
+    <string name="기기가_켜질_때_자동_실행">기기가 켜질 때 자동 실행</string>
+    <string name="화면에_항상_표시">화면에 항상 표시</string>
+    <string name="일반">일반</string>
+    <string name="시계_설정">시계 설정</string>
+    <string name="시계_크기">시계 크기</string>
+    <string name="배경색_랜덤_변경">배경색 랜덤 변경</string>
+</resources>
