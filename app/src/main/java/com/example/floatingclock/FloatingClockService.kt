@@ -5,9 +5,9 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-//import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -19,10 +19,9 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextClock
-import android.content.pm.ServiceInfo
-//import android.graphics.Color.parseColor
 import androidx.core.graphics.toColorInt
-
+import android.graphics.Typeface
+import java.io.File
 
 class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -34,33 +33,37 @@ class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChan
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        updateClockDesign() // 서비스가 켜질 때마다 설정값을 다시 읽음
+        return START_STICKY
+    }
+
     override fun onCreate() {
         super.onCreate()
-
-        // 포그라운드 서비스 알림 설정 (안드로이드 8.0 이상 필수)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                "clock_channel",
-                "Floating Clock",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-            val notification = Notification.Builder(this, "clock_channel")
-                .setContentTitle("시계 실행 중")
-                .setSmallIcon(android.R.drawable.ic_menu_today)
-                .build()
-
-            // Android 14 (API 34) 이상인지 확인 후 타입 지정해서 실행
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            } else {
-                startForeground(1, notification)
-            }
-        }
-
         prefs = getSharedPreferences("ClockPrefs", MODE_PRIVATE)
         prefs.registerOnSharedPreferenceChangeListener(this)
+
+        val channelId = "clock_channel"
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Floating Clock", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            Notification.Builder(this, channelId)
+        } else {
+            // Android 8.0 미만: 채널 불필요
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+
+        notification.setContentTitle("시계 실행 중")
+            .setSmallIcon(android.R.drawable.ic_menu_today)
+
+        val finalNotification = notification.build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(1, finalNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, finalNotification)
+        }
 
         @SuppressLint("InflateParams")
         floatingView = LayoutInflater.from(this).inflate(R.layout.floating_clock, null)
@@ -70,7 +73,6 @@ class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChan
         val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
-            // 8.0 미만 버전 기기를 위한 호환성 처리
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
@@ -78,7 +80,7 @@ class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChan
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType, // 위에서 만든 변수 사용
+            overlayType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
@@ -90,7 +92,6 @@ class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChan
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         windowManager.addView(floatingView, params)
 
-        // 드래그
         val dragHandle = floatingView.findViewById<View>(R.id.dragHandle)
         var initialX = 0
         var initialY = 0
@@ -123,24 +124,46 @@ class FloatingClockService : Service(), SharedPreferences.OnSharedPreferenceChan
     }
 
     private fun updateClockDesign() {
-        val bgColor = prefs.getInt("bg_color", "#99000000".toColorInt())
+        // 1. 설정값 불러오기
+        val alpha = prefs.getInt("alpha", 200)
+        val bgColor = prefs.getInt("bg_color", Color.BLACK)
+        val textColor = prefs.getInt("text_color", Color.WHITE)
         val cornerRadius = prefs.getInt("corner_radius", 30).toFloat()
         val clockSize = prefs.getInt("clock_size", 32).toFloat()
 
-        // 모서리 곡률, 배경색 적용
+        // 폰트 적용
+        val fontPath = prefs.getString("font_path", null)
+        if (fontPath != null) {
+            val fontFile = File(fontPath)
+            if (fontFile.exists()) {
+                try {
+                    textClock.typeface = Typeface.createFromFile(fontFile)
+                } catch (e: Exception) {
+                    textClock.typeface = Typeface.DEFAULT
+                }
+            }
+        } else {
+            textClock.typeface = Typeface.DEFAULT
+        }
+
+        // 2. 최종 적용
+        val finalBgColor = Color.argb(alpha, Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
+
+        // 3. UI 적용
         val shape = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(bgColor)
+            setColor(finalBgColor)
             setStroke(2, Color.WHITE)
             this.cornerRadius = cornerRadius
         }
 
         clockContainer.background = shape
+        textClock.setTextColor(textColor) // 텍스트 색상 적용
         textClock.textSize = clockSize
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
-        updateClockDesign()
+        updateClockDesign() // 설정이 바뀌면 즉시 호출
     }
 
     override fun onDestroy() {

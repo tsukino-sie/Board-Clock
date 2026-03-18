@@ -5,7 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F2F2F7"
-    android:scrollbars="none">
+    android:fillViewport="true"
+    android:scrollbars="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -143,27 +144,66 @@
 
                 <Space android:layout_width="match_parent" android:layout_height="16dp"/>
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="불투명도 조절"
+                    android:textSize="17sp"
+                    android:textColor="#000000"/>
+                <SeekBar
+                    android:id="@+id/alphaSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="255"
+                    android:progress="200"
+                    android:layout_marginTop="10dp"/>
+
+                <Space android:layout_width="match_parent" android:layout_height="16dp"/>
+
                 <Button
                     android:id="@+id/btnChangeColor"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/배경색_랜덤_변경"
+                    android:text="배경색 변경"
                     android:backgroundTint="#007AFF"
                     android:textColor="#FFFFFF"/>
+
+                <Button
+                    android:id="@+id/btnTextColor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="텍스트 색상 변경"
+                    android:backgroundTint="#5856D6"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp"/>
+
+                <Button
+                    android:id="@+id/btnPickFont"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="폰트 파일 업로드"
+                    android:backgroundTint="#FF9500"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp"/>
+
+                <Button
+                    android:id="@+id/btnReset"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="모든 설정 초기화"
+                    android:backgroundTint="#FF3B30"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="10dp"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="40dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginTop="30dp"
-            android:layout_marginBottom="20dp">
+            android:paddingTop="40dp"
+            android:paddingBottom="20dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -183,11 +223,10 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/v1_0_0"
+                android:text="v1_0_2"
                 android:textSize="12sp"
                 android:textColor="#C7C7CC"
                 android:layout_marginTop="8dp"/>
         </LinearLayout>
-
     </LinearLayout>
 </ScrollView>
