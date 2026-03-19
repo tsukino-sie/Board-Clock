@@ -2,7 +2,6 @@
 <resources>
 
     <style name="Theme.FloatingClock" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/purple_500</item>
     </style>
 </resources>

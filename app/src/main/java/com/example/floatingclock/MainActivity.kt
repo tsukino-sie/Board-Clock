@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 //import kotlin.random.Random
 import com.github.dhaval2404.colorpicker.ColorPickerDialog
 import com.github.dhaval2404.colorpicker.model.ColorShape
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -144,16 +145,23 @@ class MainActivity : AppCompatActivity() {
 
         // 설정 초기화
         btnReset.setOnClickListener {
-            editor.clear().apply()
+            AlertDialog.Builder(this)
+                .setTitle("초기화 확인")
+                .setMessage("정말로 모든 설정을 초기화할까요?\n이건 되돌릴 수 없어요.")
+                .setPositiveButton("초기화") { _, _ ->
+                    editor.clear().apply()
 
-            stopService(Intent(this, FloatingClockService::class.java))
+                    stopService(Intent(this, FloatingClockService::class.java))
 
-            //toggleClockSwitch.isChecked = false
-            radiusSeekBar.progress = 30
-            sizeSeekBar.progress = 22 // 32-10
-            alphaSeekBar.progress = 120
+                    //toggleClockSwitch.isChecked = false
+                    radiusSeekBar.progress = 30
+                    sizeSeekBar.progress = 22 // 32-10
+                    alphaSeekBar.progress = 120
 
-            recreate()
+                    recreate()
+                }
+                .setNegativeButton("취소", null)
+                .show()
         }
 
         val btnTextColor = findViewById<Button>(R.id.btnTextColor)
