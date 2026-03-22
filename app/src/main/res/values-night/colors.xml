@@ -7,6 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="bg_color">#FFFFFF</color> <!-- 라이트 모드 배경 -->
-    <color name="text_color">#000000</color> <!-- 라이트 모드 글자 -->
+    <color name="bg_color">#121212</color> <!-- 다크 모드 배경 -->
+    <color name="text_color">#FFFFFF</color> <!-- 다크 모드 글자 -->
 </resources>
