@@ -241,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
                             downloadId = manager.enqueue(request)
 
-                            Toast.makeText(this@MainActivity, "최신 업데이트를 다운로드하고 있습니다.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "최신 업데이트를 확인하고 있습니다.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
