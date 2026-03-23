@@ -233,7 +233,7 @@ class MainActivity : AppCompatActivity() {
                             val downloadUrl = response.body()?.assets?.firstOrNull()?.browser_download_url ?: return
 
                             val request = DownloadManager.Request(downloadUrl.toUri())
-                                .setTitle("전자칠판 시계 업데이트")
+                                .setTitle("시계 업데이트")
                                 .setDescription("최신 버전을 다운로드 중입니다.")
                                 .setDestinationInExternalFilesDir(this@MainActivity, null, "update.apk")
                                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -241,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
                             downloadId = manager.enqueue(request)
 
-                            Toast.makeText(this@MainActivity, "최신 업데이트를 다운로드합니다.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "최신 업데이트를 다운로드하고 있습니다.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
