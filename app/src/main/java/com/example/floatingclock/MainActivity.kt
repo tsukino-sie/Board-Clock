@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -21,8 +22,8 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import com.skydoves.colorpickerview.ColorPickerDialog
-import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
+import com.jaredrummler.android.colorpicker.ColorPickerDialog
+import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -30,11 +31,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ColorPickerDialogListener {
 
     private var downloadId: Long = -1L
 
-    // 다운로드가 완료되었을 때 설치 화면을 띄워주는 리시버
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
@@ -53,7 +53,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 폰트 파일 선택기 (Deprecated 경고를 해결한 최신 방식)
     private val fontPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             result.data?.data?.let { uri ->
@@ -190,39 +189,24 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // (변경됨) 새 고급 컬러 피커 적용 - 배경색
         btnChangeColor.setOnClickListener {
-            ColorPickerDialog.Builder(this)
-                .setTitle("배경색 선택")
-                .setPreferenceName("bg_color_dialog")
-                .setPositiveButton("적용", ColorEnvelopeListener { envelope, _ ->
-                    // envelope.color 안에 선택한 색상이 들어있습니다.
-                    editor.putInt("bg_color", envelope.color).apply()
-                })
-                .setNegativeButton("취소") { dialogInterface, _ ->
-                    dialogInterface.dismiss()
-                }
-                .attachAlphaSlideBar(true)       // 투명도 슬라이더 활성화
-                .attachBrightnessSlideBar(true)  // 밝기(검정, 흰색 선택) 슬라이더 활성화
-                .setBottomSpace(12)
-                .show()
+            ColorPickerDialog.newBuilder()
+                .setDialogType(ColorPickerDialog.TYPE_CUSTOM) // 프리셋 끄고 Custom 창만 보여주기
+                .setAllowPresets(false)
+                .setDialogId(1)
+                .setColor(prefs.getInt("bg_color", Color.BLACK))
+                .setShowAlphaSlider(true) // 투명도 슬라이더 활성화
+                .show(this)
         }
 
-        // (변경됨) 새 고급 컬러 피커 적용 - 텍스트 색상
         btnTextColor.setOnClickListener {
-            ColorPickerDialog.Builder(this)
-                .setTitle("텍스트 색상 선택")
-                .setPreferenceName("text_color_dialog")
-                .setPositiveButton("적용", ColorEnvelopeListener { envelope, _ ->
-                    editor.putInt("text_color", envelope.color).apply()
-                })
-                .setNegativeButton("취소") { dialogInterface, _ ->
-                    dialogInterface.dismiss()
-                }
-                .attachAlphaSlideBar(true)
-                .attachBrightnessSlideBar(true)
-                .setBottomSpace(12)
-                .show()
+            ColorPickerDialog.newBuilder()
+                .setDialogType(ColorPickerDialog.TYPE_CUSTOM)
+                .setAllowPresets(false)
+                .setDialogId(2)
+                .setColor(prefs.getInt("text_color", Color.WHITE))
+                .setShowAlphaSlider(true)
+                .show(this)
         }
 
         // 폰트 선택 버튼
@@ -239,7 +223,7 @@ class MainActivity : AppCompatActivity() {
         btnReset.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("초기화 확인")
-                .setMessage("정말로 모든 설정을 기본값으로 초기화할까요?\n이 작업은 되돌릴 수 없습니다.")
+                .setMessage("정말로 모든 설정을 기본값으로 초기화할까요?\n이 작업은 되돌릴 수 없어요.")
                 .setPositiveButton("초기화") { _, _ ->
                     editor.clear().apply()
                     stopService(Intent(this, FloatingClockService::class.java))
@@ -250,7 +234,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 자동 업데이트 로직 (Null 값 타입 매치 오류 해결 완료)
     private fun checkAndInstallUpdate() {
         try {
             val retrofit = Retrofit.Builder()
@@ -264,14 +247,13 @@ class MainActivity : AppCompatActivity() {
                     if (response.isSuccessful) {
                         val latestVersionStr = response.body()?.tag_name?.replace("v", "") ?: return
 
-                        // 버전 이름이 Null일 경우를 대비해 Elvis 연산자(?:)로 기본값 지정
                         val currentVersionStr = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
 
                         if (latestVersionStr > currentVersionStr) {
                             val downloadUrl = response.body()?.assets?.firstOrNull()?.browser_download_url ?: return
 
                             val request = DownloadManager.Request(downloadUrl.toUri())
-                                .setTitle("전자칠판 시계 업데이트")
+                                .setTitle("시계 업데이트")
                                 .setDescription("최신 버전을 다운로드 중입니다.")
                                 .setDestinationInExternalFilesDir(this@MainActivity, null, "update.apk")
                                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -291,6 +273,19 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override fun onColorSelected(dialogId: Int, color: Int) {
+        val editor = getSharedPreferences("ClockPrefs", MODE_PRIVATE).edit()
+        if (dialogId == 1) {
+            editor.putInt("bg_color", color).apply()
+        } else if (dialogId == 2) {
+            editor.putInt("text_color", color).apply()
+        }
+    }
+
+    override fun onDialogDismissed(dialogId: Int) {
+        // 특별히 처리할 동작이 없다면 비워둡니다.
     }
 
     // 메모리 누수 방지
