@@ -8,21 +8,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import com.github.dhaval2404.colorpicker.ColorPickerDialog
-import com.github.dhaval2404.colorpicker.model.ColorShape
+import com.skydoves.colorpickerview.ColorPickerDialog
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -53,11 +53,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 200 && resultCode == RESULT_OK) {
-            data?.data?.let { uri ->
+    // 폰트 파일 선택기 (Deprecated 경고를 해결한 최신 방식)
+    private val fontPickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.data?.let { uri ->
                 try {
                     val inputStream = contentResolver.openInputStream(uri)
                     val outputFile = File(filesDir, "custom_font.ttf")
@@ -84,22 +83,34 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        //[에러 해결됨] 안드로이드 공식 라이브러리인 ContextCompat을 사용하여 안전하게 리시버 등록
-        ContextCompat.registerReceiver(
-            this,
-            downloadReceiver,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_EXPORTED
-        )
+        // 리시버 등록 (Android 14+ 정책 에러 해결)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.registerReceiver(
+                this,
+                downloadReceiver,
+                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+        } else {
+            ContextCompat.registerReceiver(
+                this,
+                downloadReceiver,
+                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        }
 
+        // 앱 실행 시 깃허브 업데이트 체크
         checkAndInstallUpdate()
 
+        // 알림 권한 요청 (Android 13 이상)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
             }
         }
 
+        // 다른 앱 위에 표시 권한 요청
         if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri())
             startActivity(intent)
@@ -118,12 +129,14 @@ class MainActivity : AppCompatActivity() {
         val btnPickFont = findViewById<Button>(R.id.btnPickFont)
         val btnReset = findViewById<Button>(R.id.btnReset)
 
+        // 초기값 설정
         toggleClockSwitch.isChecked = prefs.getBoolean("is_clock_enabled", false)
         autoStartSwitch.isChecked = prefs.getBoolean("auto_start", true)
         radiusSeekBar.progress = prefs.getInt("corner_radius", 30)
         sizeSeekBar.progress = prefs.getInt("clock_size", 32) - 10
         alphaSeekBar.progress = prefs.getInt("alpha", 120)
 
+        // 시계 켜기/끄기 설정
         toggleClockSwitch.setOnCheckedChangeListener { _, isChecked ->
             editor.putBoolean("is_clock_enabled", isChecked).apply()
 
@@ -145,10 +158,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // 자동 실행 설정
         autoStartSwitch.setOnCheckedChangeListener { _, isChecked ->
             editor.putBoolean("auto_start", isChecked).apply()
         }
 
+        // 모서리 곡률 조절
         radiusSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 editor.putInt("corner_radius", progress).apply()
@@ -157,6 +172,7 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        // 시계 크기 조절
         sizeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 editor.putInt("clock_size", progress + 10).apply()
@@ -165,6 +181,7 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        // 투명도 조절
         alphaSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 editor.putInt("alpha", progress).apply()
@@ -173,34 +190,52 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        // (변경됨) 새 고급 컬러 피커 적용 - 배경색
         btnChangeColor.setOnClickListener {
             ColorPickerDialog.Builder(this)
                 .setTitle("배경색 선택")
-                .setColorShape(ColorShape.SQAURE)
-                .setDefaultColor(Color.BLACK)
-                .setColorListener { color: Int, _: String ->
-                    editor.putInt("bg_color", color).apply()
-                }.show()
+                .setPreferenceName("bg_color_dialog")
+                .setPositiveButton("적용", ColorEnvelopeListener { envelope, _ ->
+                    // envelope.color 안에 선택한 색상이 들어있습니다.
+                    editor.putInt("bg_color", envelope.color).apply()
+                })
+                .setNegativeButton("취소") { dialogInterface, _ ->
+                    dialogInterface.dismiss()
+                }
+                .attachAlphaSlideBar(true)       // 투명도 슬라이더 활성화
+                .attachBrightnessSlideBar(true)  // 밝기(검정, 흰색 선택) 슬라이더 활성화
+                .setBottomSpace(12)
+                .show()
         }
 
+        // (변경됨) 새 고급 컬러 피커 적용 - 텍스트 색상
         btnTextColor.setOnClickListener {
             ColorPickerDialog.Builder(this)
                 .setTitle("텍스트 색상 선택")
-                .setDefaultColor(Color.WHITE)
-                .setColorListener { color: Int, _: String ->
-                    editor.putInt("text_color", color).apply()
-                }.show()
+                .setPreferenceName("text_color_dialog")
+                .setPositiveButton("적용", ColorEnvelopeListener { envelope, _ ->
+                    editor.putInt("text_color", envelope.color).apply()
+                })
+                .setNegativeButton("취소") { dialogInterface, _ ->
+                    dialogInterface.dismiss()
+                }
+                .attachAlphaSlideBar(true)
+                .attachBrightnessSlideBar(true)
+                .setBottomSpace(12)
+                .show()
         }
 
+        // 폰트 선택 버튼
         btnPickFont.setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "*/*"
                 putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-opentype"))
             }
-            startActivityForResult(intent, 200)
+            fontPickerLauncher.launch(intent)
         }
 
+        // 설정 초기화
         btnReset.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("초기화 확인")
@@ -215,6 +250,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // 자동 업데이트 로직 (Null 값 타입 매치 오류 해결 완료)
     private fun checkAndInstallUpdate() {
         try {
             val retrofit = Retrofit.Builder()
@@ -227,13 +263,15 @@ class MainActivity : AppCompatActivity() {
                 override fun onResponse(call: Call<Release>, response: Response<Release>) {
                     if (response.isSuccessful) {
                         val latestVersionStr = response.body()?.tag_name?.replace("v", "") ?: return
+
+                        // 버전 이름이 Null일 경우를 대비해 Elvis 연산자(?:)로 기본값 지정
                         val currentVersionStr = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
 
                         if (latestVersionStr > currentVersionStr) {
                             val downloadUrl = response.body()?.assets?.firstOrNull()?.browser_download_url ?: return
 
                             val request = DownloadManager.Request(downloadUrl.toUri())
-                                .setTitle("시계 업데이트")
+                                .setTitle("전자칠판 시계 업데이트")
                                 .setDescription("최신 버전을 다운로드 중입니다.")
                                 .setDestinationInExternalFilesDir(this@MainActivity, null, "update.apk")
                                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -241,18 +279,21 @@ class MainActivity : AppCompatActivity() {
                             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
                             downloadId = manager.enqueue(request)
 
-                            Toast.makeText(this@MainActivity, "최신 업데이트를 확인하고 있습니다.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, "최신 업데이트를 다운로드합니다.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
 
-                override fun onFailure(call: Call<Release>, t: Throwable) {}
+                override fun onFailure(call: Call<Release>, t: Throwable) {
+                    // 인터넷 연결 실패 시 무시
+                }
             })
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
+    // 메모리 누수 방지
     override fun onDestroy() {
         super.onDestroy()
         try {
